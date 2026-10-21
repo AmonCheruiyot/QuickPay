@@ -1,6 +1,6 @@
-# QuickPay Express Backend API Reference
+# QuickPay Supabase Edge Function API Reference
 
-Base URL: `http://localhost:3000` or `http://10.0.2.2:3000`
+Base URL: `https://injsofnemhbedeswjyev.supabase.co/functions/v1/quickpay-api`
 
 ---
 
@@ -8,7 +8,7 @@ Base URL: `http://localhost:3000` or `http://10.0.2.2:3000`
 
 ### `GET /health`
 
-Checks if the server is running and database is accessible.
+Checks if the Supabase Edge Function is live and responsive.
 
 #### Request
 No parameters required.
@@ -17,8 +17,8 @@ No parameters required.
 ```json
 {
   "status": "UP",
-  "app": "QuickPay Daraja Backend",
-  "timestamp": "2026-03-30T15:45:00.000Z"
+  "app": "QuickPay Supabase Edge Function",
+  "timestamp": "2026-10-21T21:21:20.313Z"
 }
 ```
 
@@ -26,9 +26,9 @@ No parameters required.
 
 ## 2. Initiate Payment (STK Push)
 
-### `POST /api/payments/stk-push`
+### `POST /stk-push` (or `/api/payments/stk-push`)
 
-Validates input, normalizes Kenyan phone number, saves PENDING transaction in SQLite, authenticates with Daraja, and triggers Lipa Na M-Pesa STK Push.
+Validates input, normalizes Kenyan phone number, saves PENDING transaction in Supabase PostgreSQL, authenticates with Daraja, and triggers Lipa Na M-Pesa STK Push.
 
 #### Request Body
 ```json
@@ -42,9 +42,9 @@ Validates input, normalizes Kenyan phone number, saves PENDING transaction in SQ
 ```json
 {
   "success": true,
-  "message": "STK Push prompt sent to your phone. Please enter your M-Pesa PIN.",
-  "reference": "QP17926158733266391",
-  "checkoutRequestId": "ws_CO_30032026154500123",
+  "message": "Success. Request accepted for processing",
+  "reference": "QP17926176907704673",
+  "checkoutRequestId": "ws_CO_221020260021319712345678",
   "status": "PENDING",
   "maskedPhone": "2547****5678",
   "amount": 10
@@ -61,11 +61,11 @@ Validates input, normalizes Kenyan phone number, saves PENDING transaction in SQ
 
 ---
 
-## 3. Daraja STK Push Callback Endpoint
+## 3. Daraja STK Push Callback Webhook
 
-### `POST /api/payments/callback`
+### `POST /callback` (or `/api/payments/callback`)
 
-Received asynchronously from Safaricom Daraja API after user completes or cancels prompt.
+Public webhook endpoint called asynchronously by Safaricom Daraja API after user completes or cancels payment prompt.
 
 #### Success Callback Payload Example
 ```json
@@ -73,14 +73,14 @@ Received asynchronously from Safaricom Daraja API after user completes or cancel
   "Body": {
     "stkCallback": {
       "MerchantRequestID": "29115-34620561-1",
-      "CheckoutRequestID": "ws_CO_30032026154500123",
+      "CheckoutRequestID": "ws_CO_221020260021319712345678",
       "ResultCode": 0,
       "ResultDesc": "The service request is processed successfully.",
       "CallbackMetadata": {
         "Item": [
           { "Name": "Amount", "Value": 10 },
           { "Name": "MpesaReceiptNumber", "Value": "QPK1234567" },
-          { "Name": "TransactionDate", "Value": 20260330154500 },
+          { "Name": "TransactionDate", "Value": 20261021212130 },
           { "Name": "PhoneNumber", "Value": 254712345678 }
         ]
       }
@@ -101,9 +101,9 @@ Received asynchronously from Safaricom Daraja API after user completes or cancel
 
 ## 4. Get Transaction Status
 
-### `GET /api/payments/:reference`
+### `GET /status/:reference` (or `/api/payments/:reference`)
 
-Retrieves status for a specific transaction by internal reference.
+Retrieves transaction details and status from Supabase PostgreSQL by internal reference.
 
 #### Response `200 OK`
 ```json
@@ -111,19 +111,19 @@ Retrieves status for a specific transaction by internal reference.
   "success": true,
   "payment": {
     "id": 1,
-    "reference": "QP17926158733266391",
+    "reference": "QP17926176907704673",
     "phone": "254712345678",
     "maskedPhone": "2547****5678",
     "amount": 10,
-    "status": "SUCCESS",
-    "merchantRequestId": "29115-34620561-1",
-    "checkoutRequestId": "ws_CO_30032026154500123",
-    "receiptNumber": "QPK1234567",
-    "resultCode": 0,
-    "resultDescription": "The service request is processed successfully.",
-    "transactionDate": "20260330154500",
-    "createdAt": "2026-03-30 15:45:00",
-    "updatedAt": "2026-03-30 15:45:05"
+    "status": "FAILED",
+    "merchantRequestId": "727d-4bee-88dd-906bf2f5fdf1179596",
+    "checkoutRequestId": "ws_CO_221020260021319712345678",
+    "receiptNumber": null,
+    "resultCode": 11,
+    "resultDescription": "The DebitParty is in an invalid state.",
+    "transactionDate": null,
+    "createdAt": "2026-10-21T21:21:30.934901+00:00",
+    "updatedAt": "2026-10-21T21:21:34.053063+00:00"
   }
 }
 ```
@@ -140,25 +140,25 @@ Retrieves status for a specific transaction by internal reference.
 
 ## 5. Get Transaction History
 
-### `GET /api/payments?limit=50&offset=0`
+### `GET /history` (or `/api/payments?limit=50&offset=0`)
 
-Retrieves list of past transactions ordered by creation date descending.
+Retrieves list of past transactions from Supabase PostgreSQL ordered by creation date descending.
 
 #### Response `200 OK`
 ```json
 {
   "success": true,
-  "count": 1,
+  "count": 2,
   "payments": [
     {
-      "id": 1,
-      "reference": "QP17926158733266391",
-      "phone": "254712345678",
-      "maskedPhone": "2547****5678",
-      "amount": 10,
+      "id": 2,
+      "reference": "QP17926177813784082",
+      "phone": "254722000000",
+      "maskedPhone": "2547****0000",
+      "amount": 250,
       "status": "SUCCESS",
-      "receiptNumber": "QPK1234567",
-      "createdAt": "2026-03-30 15:45:00"
+      "receiptNumber": "QPK99887766",
+      "createdAt": "2026-10-21T21:23:01.55724+00:00"
     }
   ]
 }

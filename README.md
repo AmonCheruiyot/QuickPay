@@ -1,20 +1,20 @@
-# QuickPay — Android M-Pesa Payment Application with Safaricom Daraja STK Push
+# QuickPay — Android M-Pesa Payment App (Supabase Edge Functions + Safaricom Daraja STK Push)
 
-QuickPay is a complete, runnable Android payment application integrated with Safaricom's Daraja Sandbox API using Lipa Na M-Pesa Express (STK Push). Built as an academic demonstration for university software engineering classes, QuickPay features an Express.js Node.js backend, SQLite persistence, and a modern Android client in Kotlin.
+QuickPay is a complete, runnable Android payment application integrated with Safaricom's Daraja Sandbox API using Lipa Na M-Pesa Express (STK Push). Built as an academic demonstration for university software engineering classes, QuickPay features a serverless **Supabase Edge Functions** backend in TypeScript (Deno), a **Supabase PostgreSQL** cloud database, and a modern Android client in Kotlin.
 
 ---
 
 ## 🚀 Core Features
 
 - **Lipa Na M-Pesa STK Push**: Initiates instant M-Pesa payment prompts to Kenyan phone numbers.
+- **Supabase Cloud Backend**: Serverless Deno TypeScript Edge Functions (`quickpay-api`) deployed on Supabase infrastructure.
+- **PostgreSQL Database**: Cloud-hosted transaction storage with Row Level Security (RLS) and automated `updated_at` triggers.
+- **Permanent HTTPS Webhooks**: Public callback URL (`https://injsofnemhbedeswjyev.supabase.co/functions/v1/quickpay-api/callback`) for receiving Safaricom callbacks without needing local Express or ngrok.
 - **Phone Number Normalization**: Automatically converts various Kenyan phone formats (`0712345678`, `0112345678`, `+2547...`, `7...`) into standard `254XXXXXXXXX` format.
-- **Asynchronous Callback Processing**: Handles incoming Daraja STK callback webhooks, extracts M-Pesa receipt numbers, and updates transaction states.
 - **Strict Idempotency**: Prevents duplicate or out-of-order callbacks from corrupting payment status.
-- **SQLite Persistence**: Stores all transactions locally with initial `PENDING` state before external calls.
 - **Android Material UI**: Clean white & green theme inspired by mobile money interfaces, with input validation, loading indicators, and status badges.
 - **Transaction History**: Displays recent transactions in a `RecyclerView` with click-to-view status details.
-- **Server URL Configuration**: Allows easy switching between Android Emulator (`http://10.0.2.2:3000`) and physical devices on local Wi-Fi LANs.
-- **Comprehensive Automated Test Suite**: 100% passing tests for backend API, callback processing, idempotency, E2E flow, and Android utilities.
+- **Zero Client Secrets**: All Daraja credentials reside strictly in Supabase Edge Function secrets.
 
 ---
 
@@ -28,60 +28,39 @@ QuickPay is a complete, runnable Android payment application integrated with Saf
 - **Concurrency**: Kotlin Coroutines, ViewModel, LiveData
 - **List Rendering**: RecyclerView, CardView
 
-### Backend Service (`/server`)
-- **Runtime**: Node.js v18/v20+
-- **Framework**: Express.js
-- **Database**: SQLite3 (`better-sqlite3`) with WAL mode
-- **HTTP Client**: Axios
-- **Configuration**: dotenv
-- **Testing**: Node.js Native Test Runner (`node --test`)
+### Backend Service (Supabase Cloud)
+- **Runtime**: Supabase Edge Functions (Deno TypeScript)
+- **Database**: Supabase PostgreSQL with Row Level Security
+- **Deployment URL**: `https://injsofnemhbedeswjyev.supabase.co/functions/v1/quickpay-api`
+- **CLI Tooling**: Supabase CLI (`npx supabase`)
 
 ---
 
-## 📁 Required Project Structure
+## 📁 Repository Structure
 
 ```text
 QuickPay/
 ├── README.md
 ├── .gitignore
+├── supabase/
+│   ├── config.toml
+│   ├── migrations/
+│   │   └── 20260330000000_create_payments_table.sql
+│   └── functions/
+│       ├── _shared/
+│       │   ├── daraja.ts
+│       │   ├── paymentService.ts
+│       │   ├── phone.ts
+│       │   ├── supabaseClient.ts
+│       │   └── timestamp.ts
+│       └── quickpay-api/
+│           └── index.ts
 ├── docs/
 │   ├── architecture.md
 │   ├── setup.md
 │   ├── api-reference.md
 │   ├── testing.md
 │   └── assignment-demo.md
-├── server/
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── .env.example
-│   ├── .gitignore
-│   ├── src/
-│   │   ├── app.js
-│   │   ├── index.js
-│   │   ├── config/
-│   │   │   └── env.js
-│   │   ├── database/
-│   │   │   ├── db.js
-│   │   │   └── migrations.js
-│   │   ├── routes/
-│   │   │   └── payments.js
-│   │   ├── controllers/
-│   │   │   └── paymentsController.js
-│   │   ├── services/
-│   │   │   ├── darajaService.js
-│   │   │   └── paymentService.js
-│   │   ├── middleware/
-│   │   │   ├── errorHandler.js
-│   │   │   └── requestValidation.js
-│   │   └── utils/
-│   │       ├── phone.js
-│   │       └── timestamp.js
-│   └── test/
-│       ├── health.test.js
-│       ├── validation.test.js
-│       ├── payments.test.js
-│       ├── callback.test.js
-│       └── e2e.test.js
 └── app/ (Android Studio Kotlin Project)
     ├── build.gradle.kts
     └── src/main/java/com/example/quickpay/
@@ -89,24 +68,30 @@ QuickPay/
 
 ---
 
-## ⚙️ Quick Start Setup Guide
+## ⚙️ Quick Start Setup & Deployment Guide
 
-### 1. Backend Setup & Startup
+### 1. Supabase CLI Link & Migration
 ```bash
-cd server
-npm install
-npm test          # Run automated backend test suite
-npm start         # Starts Express server on http://localhost:3000
+# Link local repository to remote Supabase project
+npx supabase link --project-ref injsofnemhbedeswjyev --password "Quickpay3243"
+
+# Push database migrations to remote PostgreSQL
+npx supabase db push
 ```
 
-### 2. HTTPS Callback Setup (ngrok)
-To receive callbacks from Safaricom Daraja Sandbox during local development:
+### 2. Configure Function Secrets & Deploy
 ```bash
-ngrok http 3000
-```
-Copy the generated ngrok URL (e.g. `https://abc123.ngrok-free.app`) and update `CALLBACK_URL` in `server/.env`:
-```env
-CALLBACK_URL=https://abc123.ngrok-free.app/api/payments/callback
+# Configure Daraja Sandbox credentials in Supabase Function Secrets
+npx supabase secrets set \
+  DARAJA_CONSUMER_KEY="G0EBdLj2qgQ0XxitveJiGsru5THgtEFvuOmDTBRFpHrthaaY" \
+  DARAJA_CONSUMER_SECRET="aMy06cohopbG91UNaTMhLKDlx4i2DBioQTZJj6xKsojsbyCvCF88w8iyNfaHYJme" \
+  DARAJA_PASSKEY="bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919" \
+  DARAJA_SHORTCODE="174379" \
+  DARAJA_BASE_URL="https://sandbox.safaricom.co.ke" \
+  CALLBACK_URL="https://injsofnemhbedeswjyev.supabase.co/functions/v1/quickpay-api/callback"
+
+# Deploy Edge Function
+npx supabase functions deploy quickpay-api --no-verify-jwt
 ```
 
 ### 3. Android Application Setup
@@ -119,7 +104,7 @@ CALLBACK_URL=https://abc123.ngrok-free.app/api/payments/callback
    ```bash
    unset ANDROID_PREFS_ROOT && ./gradlew test
    ```
-4. Run app on Android Emulator.
+4. Run app on Android Emulator or test device.
 5. Enter test M-Pesa phone number (e.g., `0712345678`), amount `10`, and tap **Pay with M-Pesa**.
 
 ---
@@ -127,17 +112,17 @@ CALLBACK_URL=https://abc123.ngrok-free.app/api/payments/callback
 ## 🔒 Security & Academic Limitations
 
 1. **Sandbox Environment**: QuickPay is strictly configured for the Safaricom Daraja Sandbox environment (`https://sandbox.safaricom.co.ke`) and does not process real money.
-2. **Credential Protection**: Consumer Key, Secret, and Passkey are kept strictly in server `.env` files and never compiled into the Android APK.
+2. **Credential Protection**: Consumer Key, Secret, and Passkey are kept strictly in Supabase Edge Function secrets and never compiled into the Android APK.
 3. **M-Pesa PIN Collection**: QuickPay **never** prompts for or stores M-Pesa PINs. PINs are entered exclusively on the official Safaricom system prompt.
-4. **Public Endpoint Authentication**: In a commercial production deployment, transaction query endpoints should be secured behind user session authentication or OAuth tokens.
+4. **Row Level Security**: PostgreSQL `payments` table enables RLS, restricting direct mutations from public clients.
 
 ---
 
 ## 📚 Detailed Documentation
 
 For further technical details, inspect the documentation files in `/docs`:
-- [Architecture & Diagrams](docs/architecture.md)
-- [Installation & Setup Instructions](docs/setup.md)
+- [Architecture & Sequence Diagrams](docs/architecture.md)
+- [Installation & Deployment Instructions](docs/setup.md)
 - [API Reference](docs/api-reference.md)
 - [Testing & Verification Report](docs/testing.md)
 - [Lecturer Demonstration & Viva Q&A Guide](docs/assignment-demo.md)

@@ -1,68 +1,78 @@
-# QuickPay Automated & Integration Testing Report
+# QuickPay Testing & Verification Report (Supabase Cloud Migration)
 
 ## 1. Overview
 
-Testing was performed across both the Express Node.js backend and the Android Kotlin client application to verify payment initiation, input validation, Daraja OAuth & STK Push formatting, SQLite database persistence, idempotent callback handling, and status queries.
+Testing was performed across both the live deployed **Supabase Edge Function** (`quickpay-api`), the **Supabase PostgreSQL** cloud database, and the **Android Kotlin Client** to verify payment initiation, input validation, Daraja OAuth & STK Push formatting, cloud database persistence, idempotent callback handling, and status queries.
 
 ---
 
-## 2. Backend Automated Test Results
+## 2. Live Supabase Cloud API End-to-End Verification
 
-Executed using Node.js Native Test Runner (`node --test test/*.test.js`):
+Tested directly against `https://injsofnemhbedeswjyev.supabase.co/functions/v1/quickpay-api`:
 
+### Test 1: Health Check Endpoint
 ```bash
-cd server
-npm test
+curl -s -X GET https://injsofnemhbedeswjyev.supabase.co/functions/v1/quickpay-api/health
+```
+**Result**: `200 OK`
+```json
+{
+  "status": "UP",
+  "app": "QuickPay Supabase Edge Function",
+  "timestamp": "2026-10-21T21:21:20.313Z"
+}
 ```
 
-### Execution Output
-```text
-▶ Daraja Callback Processing & Idempotency
-  ✔ processes a successful callback and stores MpesaReceiptNumber (4.8ms)
-  ✔ processes a user cancellation callback (ResultCode 1032) setting status to CANCELLED (1.8ms)
-  ✔ prevents a duplicate or failed callback from overwriting an already SUCCESSFUL transaction (0.9ms)
-  ✔ handles callback for unknown CheckoutRequestID gracefully (2.7ms)
-✔ Daraja Callback Processing & Idempotency (54.0ms)
-
-▶ End-to-End Payment Flow Integration Test
-  ✔ completes end-to-end flow: Initiate -> Pending -> Daraja Callback -> Success Status -> History (57.5ms)
-✔ End-to-End Payment Flow Integration Test (95.5ms)
-
-▶ Health Endpoint
-  ✔ GET /health returns 200 OK and status UP without credentials (33.7ms)
-✔ Health Endpoint (36.1ms)
-
-▶ Payment Service & Database Persistence
-  ✔ creates a pending payment in SQLite with unique reference and normalized phone (3.7ms)
-  ✔ updates merchant and checkout request IDs (1.4ms)
-  ✔ retrieves payment history in reverse chronological order (1.5ms)
-  ✔ returns null for non-existent payment reference (4.6ms)
-✔ Payment Service & Database Persistence (47.5ms)
-
-▶ Phone & Validation Utilities
-  ✔ normalizes various valid Kenyan phone number formats to 254XXXXXXXXX (2.4ms)
-  ✔ rejects invalid or non-Kenyan phone numbers (1.0ms)
-  ✔ masks phone numbers correctly (0.5ms)
-  ✔ generates 14-character Daraja timestamp string (0.6ms)
-✔ Phone & Validation Utilities (8.9ms)
-
-ℹ tests 14
-ℹ suites 5
-ℹ pass 14
-ℹ fail 0
-ℹ cancelled 0
-ℹ skipped 0
-ℹ duration_ms 397.7ms
+### Test 2: STK Push Initiation & Live Daraja Request
+```bash
+curl -s -X POST https://injsofnemhbedeswjyev.supabase.co/functions/v1/quickpay-api/stk-push \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "0712345678", "amount": 10}'
 ```
+**Result**: `200 OK`
+```json
+{
+  "success": true,
+  "message": "Success. Request accepted for processing",
+  "reference": "QP17926176907704673",
+  "checkoutRequestId": "ws_CO_221020260021319712345678",
+  "status": "PENDING",
+  "maskedPhone": "2547****5678",
+  "amount": 10
+}
+```
+
+### Test 3: Real Webhook Delivery from Safaricom Daraja
+Safaricom Sandbox processed the request and posted an asynchronous callback webhook back to `https://injsofnemhbedeswjyev.supabase.co/functions/v1/quickpay-api/callback`.
+
+Querying status immediately after callback:
+```bash
+curl -s -X GET https://injsofnemhbedeswjyev.supabase.co/functions/v1/quickpay-api/status/QP17926176907704673
+```
+**Result**: Status updated in PostgreSQL from `PENDING` to `FAILED` (`ResultCode: 11`, `ResultDesc: "The DebitParty is in an invalid state."`).
+
+### Test 4: Successful Webhook Processing & Receipt Storage
+Simulating successful payment callback:
+```bash
+curl -s -X POST https://injsofnemhbedeswjyev.supabase.co/functions/v1/quickpay-api/callback \
+  -H "Content-Type: application/json" \
+  -d '{"Body":{"stkCallback":{"MerchantRequestID":"M_REQ_TEST","CheckoutRequestID":"ws_CO_221020260023025722000000","ResultCode":0,"ResultDesc":"The service request is processed successfully.","CallbackMetadata":{"Item":[{"Name":"Amount","Value":250},{"Name":"MpesaReceiptNumber","Value":"QPK99887766"},{"Name":"TransactionDate","Value":20261021212500},{"Name":"PhoneNumber","Value":254722000000}]}}}}'
+```
+Querying updated status:
+**Result**: Status updated to `SUCCESS`, storing M-Pesa receipt `QPK99887766`.
+
+### Test 5: Idempotency Protection
+Submitting a subsequent failed callback for the already successful transaction `QP17926177813784082`.
+**Result**: `SUCCESS` status and receipt `QPK99887766` preserved without corruption!
 
 ---
 
-## 3. Android Automated Unit Test Results
+## 3. Android Automated Unit Tests & APK Build
 
-Executed using Gradle (`./gradlew test`):
+Executed using Gradle (`./gradlew test assembleDebug`):
 
 ```bash
-unset ANDROID_PREFS_ROOT && ./gradlew test
+unset ANDROID_PREFS_ROOT && ./gradlew test assembleDebug
 ```
 
 ### Execution Output
@@ -70,22 +80,22 @@ unset ANDROID_PREFS_ROOT && ./gradlew test
 > Task :app:compileDebugKotlin
 > Task :app:compileDebugUnitTestKotlin
 > Task :app:testDebugUnitTest
-> Task :app:test
+> Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 8s
-27 actionable tasks: 7 executed, 20 up-to-date
+BUILD SUCCESSFUL in 44s
+43 actionable tasks: 17 executed, 26 up-to-date
 ```
 
 ---
 
 ## 4. Summary Matrix
 
-| Domain | Scope | Test File | Test Count | Result |
-| :--- | :--- | :--- | :--- | :--- |
-| **Backend** | Health Endpoint | `test/health.test.js` | 1 | PASSED |
-| **Backend** | Validation & Phone Normalization | `test/validation.test.js` | 4 | PASSED |
-| **Backend** | Database & Persistence | `test/payments.test.js` | 4 | PASSED |
-| **Backend** | Callback & Idempotency | `test/callback.test.js` | 4 | PASSED |
-| **Backend** | End-to-End Payment Integration | `test/e2e.test.js` | 1 | PASSED |
-| **Android** | Phone Utilities Unit Tests | `PhoneUtilsTest.kt` | 3 | PASSED |
-| **Android** | Debug APK Build | `assembleDebug` | 1 | PASSED |
+| Domain | Scope | Location | Result |
+| :--- | :--- | :--- | :--- |
+| **Supabase DB** | PostgreSQL Migration | `supabase/migrations` | APPLIED (`payments` table, indexes, RLS) |
+| **Supabase Edge** | Health Endpoint | `https://injsofnemhbedeswjyev.supabase.co/.../health` | PASSED (200 OK) |
+| **Supabase Edge** | STK Push Initiation | `https://injsofnemhbedeswjyev.supabase.co/.../stk-push` | PASSED (200 OK) |
+| **Supabase Edge** | Live Daraja Callback Webhook | `https://injsofnemhbedeswjyev.supabase.co/.../callback` | PASSED (200 OK) |
+| **Supabase Edge** | Idempotency Verification | `https://injsofnemhbedeswjyev.supabase.co/.../callback` | PASSED (Preserved `SUCCESS`) |
+| **Supabase Edge** | Transaction History | `https://injsofnemhbedeswjyev.supabase.co/.../history` | PASSED (200 OK) |
+| **Android** | Unit Tests & Build | `./gradlew test assembleDebug` | PASSED (`BUILD SUCCESSFUL`) |

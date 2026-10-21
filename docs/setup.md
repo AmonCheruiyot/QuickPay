@@ -1,93 +1,70 @@
-# QuickPay Setup & Installation Guide
+# QuickPay Setup & Deployment Guide (Supabase Migration)
 
-This document provides step-by-step instructions to set up, configure, and run both the Express backend server and the Android application for QuickPay.
+This document provides step-by-step instructions to configure, deploy, and run the QuickPay Supabase Edge Functions backend and Android application.
 
 ---
 
 ## 1. Prerequisites
 
 - **Node.js**: Version 18.x or 20.x+
-- **npm**: Version 9.x+
+- **Supabase CLI**: Version 2.x+ (`npx supabase`)
 - **Java Development Kit (JDK)**: JDK 17 or Java 21+
 - **Android Studio**: Ladybug / Koala or newer with Android SDK Platform 35/37 installed.
-- **ngrok** (or alternative HTTPS tunnel) for receiving Safaricom Daraja callbacks during local development.
 
 ---
 
-## 2. Backend Installation & Setup
+## 2. Supabase Backend Setup & Deployment
 
-### Step 1: Navigate to server directory
+### Step 1: Initialize local Supabase project
 ```bash
-cd server
+npx supabase init
 ```
 
-### Step 2: Install dependencies
+### Step 2: Link local repository to remote Supabase project
 ```bash
-npm install
+npx supabase link --project-ref injsofnemhbedeswjyev --password "Quickpay3243"
 ```
 
-### Step 3: Configure Environment Variables
-Create `.env` file inside `server/` (or copy from `.env.example`):
+### Step 3: Apply PostgreSQL Database Migrations
 ```bash
-cp .env.example .env
+npx supabase db push
 ```
 
-Ensure `.env` contains the following Safaricom Daraja Sandbox credentials:
-```env
-PORT=3000
-NODE_ENV=development
-DARAJA_CONSUMER_KEY=G0EBdLj2qgQ0XxitveJiGsru5THgtEFvuOmDTBRFpHrthaaY
-DARAJA_CONSUMER_SECRET=aMy06cohopbG91UNaTMhLKDlx4i2DBioQTZJj6xKsojsbyCvCF88w8iyNfaHYJme
-DARAJA_PASSKEY=bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919
-DARAJA_SHORTCODE=174379
-DARAJA_BASE_URL=https://sandbox.safaricom.co.ke
-CALLBACK_URL=http://localhost:3000/api/payments/callback
-```
-
-### Step 4: Run Backend Tests
-Verify backend functionality and SQLite database setup:
+### Step 4: Configure Supabase Function Secrets
+Set the Daraja Sandbox credentials and function environment variables on Supabase:
 ```bash
-npm test
+npx supabase secrets set \
+  DARAJA_CONSUMER_KEY="G0EBdLj2qgQ0XxitveJiGsru5THgtEFvuOmDTBRFpHrthaaY" \
+  DARAJA_CONSUMER_SECRET="aMy06cohopbG91UNaTMhLKDlx4i2DBioQTZJj6xKsojsbyCvCF88w8iyNfaHYJme" \
+  DARAJA_PASSKEY="bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919" \
+  DARAJA_SHORTCODE="174379" \
+  DARAJA_BASE_URL="https://sandbox.safaricom.co.ke" \
+  CALLBACK_URL="https://injsofnemhbedeswjyev.supabase.co/functions/v1/quickpay-api/callback"
 ```
 
-### Step 5: Start Backend Server
+### Step 5: Deploy Edge Functions
+Deploy the `quickpay-api` Edge Function with public JWT verification disabled (allowing public webhook callbacks from Safaricom):
 ```bash
-npm start
+npx supabase functions deploy quickpay-api --no-verify-jwt
 ```
-The server will run on `http://localhost:3000`.
+
+The deployed function URL is:
+`https://injsofnemhbedeswjyev.supabase.co/functions/v1/quickpay-api`
 
 ---
 
-## 3. Configuring Safaricom Callback Tunnel (ngrok)
+## 3. Android Application Setup
 
-Safaricom Daraja requires a publicly accessible HTTPS URL for callback notifications.
-
-### Step 1: Start ngrok tunnel
-```bash
-ngrok http 3000
-```
-
-### Step 2: Update `CALLBACK_URL` in `.env`
-Copy the generated ngrok HTTPS URL (e.g., `https://abc1234.ngrok-free.app`) and update `.env`:
-```env
-CALLBACK_URL=https://abc1234.ngrok-free.app/api/payments/callback
-```
-
-Restart the Express backend server for changes to take effect.
-
----
-
-## 4. Android Application Setup
-
-### Option A: Running on Android Emulator
-1. Open Android Studio and import `/home/amon/AndroidStudioProjects/Quickpay`.
-2. Sync project with Gradle files (`./gradlew assembleDebug`).
-3. Launch an Android Virtual Device (AVD).
-4. Build & Run the app on the AVD.
-5. In the QuickPay home screen, leave the **Backend Server URL** set to default: `http://10.0.2.2:3000` (which routes to the host computer's port 3000).
-
-### Option B: Running on Physical Android Device (LAN)
-1. Ensure your computer and Android phone are on the same Wi-Fi network.
-2. Find your local IP address (e.g. `192.168.1.100`).
-3. In QuickPay Android app, set the **Backend Server URL** to `http://192.168.1.100:3000`.
-4. Ensure computer firewall allows incoming connections on port 3000.
+### Running on Android Emulator or Physical Device
+1. Open `/home/amon/AndroidStudioProjects/Quickpay` in Android Studio.
+2. Build & run the app:
+   ```bash
+   unset ANDROID_PREFS_ROOT && ./gradlew assembleDebug
+   ```
+3. Run Android unit tests:
+   ```bash
+   unset ANDROID_PREFS_ROOT && ./gradlew test
+   ```
+4. The app default server URL is pre-configured to point to the live cloud backend:
+   `https://injsofnemhbedeswjyev.supabase.co/functions/v1/quickpay-api`
+5. No local Express server or ngrok tunnel is required.

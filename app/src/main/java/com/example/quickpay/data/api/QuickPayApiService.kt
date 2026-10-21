@@ -13,17 +13,17 @@ import retrofit2.http.Query
 
 interface QuickPayApiService {
 
-    @POST("api/payments/stk-push")
+    @POST("stk-push")
     suspend fun initiateStkPush(
         @Body request: PaymentRequest
     ): Response<PaymentResponse>
 
-    @GET("api/payments/{reference}")
+    @GET("status/{reference}")
     suspend fun getPaymentStatus(
         @Path("reference") reference: String
     ): Response<SingleTransactionResponse>
 
-    @GET("api/payments")
+    @GET("history")
     suspend fun getPaymentHistory(
         @Query("limit") limit: Int = 50,
         @Query("offset") offset: Int = 0
