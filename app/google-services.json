@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "908505154544",
+    "project_id": "com-example-quickpay-337ad",
+    "storage_bucket": "com-example-quickpay-337ad.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:908505154544:android:37cc9d3e034634a062d335",
+        "android_client_info": {
+          "package_name": "com.example.quickpay"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAb1QRkHOoG5d1UFB_x8ykP5BnTLiBbA1w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">QuickPay</string>
+    <string name="app_subtitle">Fast &amp; Secure M-Pesa Payments</string>
+    <string name="pay_with_mpesa">Pay with M-Pesa</string>
+    <string name="phone_number_hint">M-Pesa Phone Number (e.g. 0712345678)</string>
+    <string name="amount_hint">Amount in KSh</string>
+    <string name="server_url_hint">Backend Server URL (Default: http://10.0.2.2:3000)</string>
+    <string name="view_history">View Transaction History</string>
+    <string name="transaction_status">Transaction Status</string>
+    <string name="transaction_history">Transaction History</string>
+    <string name="refresh_status">Refresh Status</string>
+    <string name="back_to_home">Back to Home</string>
+    <string name="reference">Reference</string>
+    <string name="phone">Phone</string>
+    <string name="amount">Amount</string>
+    <string name="status">Status</string>
+    <string name="receipt_number">M-Pesa Receipt</string>
+    <string name="created_at">Date &amp; Time</string>
+    <string name="no_transactions">No transactions found</string>
+    <string name="demo_disclaimer">Daraja Sandbox Academic Demonstration App</string>
+</resources>

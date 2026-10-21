@@ -1,0 +1,27 @@
+{
+  "name": "quickpay-server",
+  "version": "1.0.0",
+  "description": "QuickPay Backend Express Server for Safaricom Daraja Lipa Na M-Pesa STK Push",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "mpesa",
+    "daraja",
+    "stk-push",
+    "quickpay",
+    "express"
+  ],
+  "author": "QuickPay Team",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "better-sqlite3": "^11.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}
