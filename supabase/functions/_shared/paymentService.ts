@@ -1,9 +1,11 @@
 import { getSupabaseAdminClient } from './supabaseClient.ts';
 import { normalizePhoneNumber, maskPhoneNumber } from './phone.ts';
+import { markOrderAsPaidAndDeductStock } from './ecommerceService.ts';
 
 export interface PaymentRecord {
   id: number;
   reference: string;
+  orderReference?: string | null;
   phone: string;
   maskedPhone: string;
   amount: number;
@@ -18,7 +20,11 @@ export interface PaymentRecord {
   updatedAt: string;
 }
 
-export async function createPendingPayment(phone: string, amount: number): Promise<PaymentRecord> {
+export async function createPendingPayment(
+  phone: string,
+  amount: number,
+  orderReference?: string
+): Promise<PaymentRecord> {
   const normalizedPhone = normalizePhoneNumber(phone);
   const parsedAmount = Math.round(amount);
 
@@ -36,6 +42,7 @@ export async function createPendingPayment(phone: string, amount: number): Promi
     .insert([
       {
         reference,
+        order_reference: orderReference || null,
         phone: normalizedPhone,
         amount: parsedAmount,
         status: 'PENDING',
@@ -163,6 +170,11 @@ export async function processCallback(callbackPayload: any) {
     transactionDate,
   });
 
+  // If payment succeeded and is associated with an E-Commerce Order, update Order state & deduct stock!
+  if (status === 'SUCCESS' && existingPayment.order_reference) {
+    await markOrderAsPaidAndDeductStock(existingPayment.order_reference, receiptNumber || undefined);
+  }
+
   return { success: true, payment: updatedPayment };
 }
 
@@ -200,6 +212,7 @@ function formatPaymentRow(row: any): PaymentRecord {
   return {
     id: row.id,
     reference: row.reference,
+    orderReference: row.order_reference,
     phone: row.phone,
     maskedPhone: maskPhoneNumber(row.phone),
     amount: row.amount,

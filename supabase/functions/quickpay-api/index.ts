@@ -7,13 +7,27 @@ import {
   getPaymentByReference,
   getPaymentHistory,
 } from '../_shared/paymentService.ts';
+import {
+  registerUser,
+  loginUser,
+  updateUserProfile,
+  getProducts,
+  getProductById,
+  addProduct,
+  updateProduct,
+  createCheckoutOrder,
+  getOrderDetails,
+  getOrderHistoryForUser,
+  updateOrderStatusByAdmin,
+  getAdminDashboardStats,
+} from '../_shared/ecommerceService.ts';
 import { initiateStkPush } from '../_shared/daraja.ts';
 import { normalizePhoneNumber } from '../_shared/phone.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 };
 
 serve(async (req: Request) => {
@@ -25,16 +39,109 @@ serve(async (req: Request) => {
   const pathname = url.pathname.replace(/^\/quickpay-api/, '').replace(/\/$/, '') || '/';
 
   try {
-    // Health check endpoint
+    // 1. Health check
     if (req.method === 'GET' && (pathname === '/health' || pathname === '/')) {
       return jsonResponse({
         status: 'UP',
-        app: 'QuickPay Supabase Edge Function',
+        app: 'QuickPay E-Commerce Supabase Edge Function',
         timestamp: new Date().toISOString(),
       });
     }
 
-    // Initiate STK Push payment
+    // -----------------------------------------------------------------------
+    // 2. Authentication Routes
+    // -----------------------------------------------------------------------
+    if (req.method === 'POST' && pathname === '/auth/register') {
+      const body = await req.json();
+      const user = await registerUser(body);
+      return jsonResponse({ success: true, message: 'Account registered successfully', user });
+    }
+
+    if (req.method === 'POST' && pathname === '/auth/login') {
+      const body = await req.json();
+      const user = await loginUser(body.email, body.password);
+      return jsonResponse({ success: true, message: 'Login successful', user });
+    }
+
+    if (req.method === 'POST' && pathname === '/auth/profile') {
+      const body = await req.json();
+      const updatedUser = await updateUserProfile(body.userId, body);
+      return jsonResponse({ success: true, message: 'Profile updated successfully', user: updatedUser });
+    }
+
+    // -----------------------------------------------------------------------
+    // 3. Product Catalogue Routes
+    // -----------------------------------------------------------------------
+    if (req.method === 'GET' && pathname === '/products') {
+      const category = url.searchParams.get('category') || undefined;
+      const query = url.searchParams.get('q') || undefined;
+      const products = await getProducts(category, query);
+      return jsonResponse({ success: true, count: products.length, products });
+    }
+
+    if (req.method === 'GET' && pathname.startsWith('/products/')) {
+      const id = parseInt(pathname.split('/')[2], 10);
+      const product = await getProductById(id);
+      if (!product) {
+        return jsonResponse({ error: 'Not Found', message: 'Product not found' }, 404);
+      }
+      return jsonResponse({ success: true, product });
+    }
+
+    if (req.method === 'POST' && pathname === '/admin/products') {
+      const body = await req.json();
+      const product = await addProduct(body);
+      return jsonResponse({ success: true, message: 'Product created successfully', product });
+    }
+
+    if (req.method === 'PUT' && pathname.startsWith('/admin/products/')) {
+      const id = parseInt(pathname.split('/')[3], 10);
+      const body = await req.json();
+      const product = await updateProduct(id, body);
+      return jsonResponse({ success: true, message: 'Product updated successfully', product });
+    }
+
+    // -----------------------------------------------------------------------
+    // 4. Checkout & Order Management Routes
+    // -----------------------------------------------------------------------
+    if (req.method === 'POST' && pathname === '/orders/checkout') {
+      const body = await req.json();
+      const order = await createCheckoutOrder(body);
+      return jsonResponse({ success: true, message: 'Order created successfully', order });
+    }
+
+    if (req.method === 'GET' && pathname === '/orders/history') {
+      const userIdStr = url.searchParams.get('userId');
+      const userId = userIdStr ? parseInt(userIdStr, 10) : undefined;
+      const orders = await getOrderHistoryForUser(userId);
+      return jsonResponse({ success: true, count: orders.length, orders });
+    }
+
+    if (req.method === 'GET' && pathname.startsWith('/orders/')) {
+      const ref = pathname.split('/')[2];
+      const order = await getOrderDetails(ref);
+      if (!order) {
+        return jsonResponse({ error: 'Not Found', message: 'Order not found' }, 404);
+      }
+      return jsonResponse({ success: true, order });
+    }
+
+    if (req.method === 'PUT' && pathname.includes('/admin/orders/') && pathname.endsWith('/status')) {
+      const parts = pathname.split('/');
+      const orderId = parseInt(parts[3], 10);
+      const body = await req.json();
+      const updatedOrder = await updateOrderStatusByAdmin(orderId, body.status);
+      return jsonResponse({ success: true, message: 'Order status updated', order: updatedOrder });
+    }
+
+    if (req.method === 'GET' && pathname === '/admin/dashboard') {
+      const stats = await getAdminDashboardStats();
+      return jsonResponse({ success: true, stats });
+    }
+
+    // -----------------------------------------------------------------------
+    // 5. Safaricom M-Pesa STK Push Payment Routes
+    // -----------------------------------------------------------------------
     if (req.method === 'POST' && (pathname === '/stk-push' || pathname === '/api/payments/stk-push')) {
       let body: any = {};
       try {
@@ -43,7 +150,7 @@ serve(async (req: Request) => {
         return jsonResponse({ error: 'Invalid JSON', message: 'Request body must be valid JSON' }, 400);
       }
 
-      const { phone, amount } = body;
+      const { phone, amount, orderReference } = body;
       if (!phone || typeof phone !== 'string') {
         return jsonResponse({ error: 'Invalid Phone Number', message: 'Phone number is required' }, 400);
       }
@@ -60,19 +167,18 @@ serve(async (req: Request) => {
         return jsonResponse({ error: 'Invalid Amount', message: 'Amount must be a positive number between 1 and 300,000 KSh' }, 400);
       }
 
-      // 1. Create PENDING payment in PostgreSQL before external network call
-      const payment = await createPendingPayment(normalizedPhone, parsedAmount);
+      // Save PENDING payment in database
+      const payment = await createPendingPayment(normalizedPhone, parsedAmount, orderReference);
 
-      // 2. Trigger STK Push via Safaricom Daraja
+      // Trigger STK Push
       try {
         const darajaResponse = await initiateStkPush({
           phone: normalizedPhone,
           amount: parsedAmount,
-          accountReference: `QP-${payment.reference}`,
-          transactionDesc: `QuickPay Payment ${payment.reference}`,
+          accountReference: orderReference || `QP-${payment.reference}`,
+          transactionDesc: `QuickPay Payment ${orderReference || payment.reference}`,
         });
 
-        // 3. Update transaction record with CheckoutRequestID & MerchantRequestID
         const updatedPayment = await updatePaymentCheckoutDetails(payment.reference, {
           merchantRequestId: darajaResponse.MerchantRequestID,
           checkoutRequestId: darajaResponse.CheckoutRequestID,
@@ -82,6 +188,7 @@ serve(async (req: Request) => {
           success: true,
           message: darajaResponse.CustomerMessage || 'STK Push prompt sent to your phone. Please enter your M-Pesa PIN.',
           reference: updatedPayment.reference,
+          orderReference: updatedPayment.orderReference,
           checkoutRequestId: updatedPayment.checkoutRequestId,
           status: updatedPayment.status,
           maskedPhone: updatedPayment.maskedPhone,
@@ -101,7 +208,6 @@ serve(async (req: Request) => {
       }
     }
 
-    // Public Callback Webhook for Safaricom Daraja
     if (req.method === 'POST' && (pathname === '/callback' || pathname === '/api/payments/callback')) {
       let callbackBody: any = {};
       try {
@@ -113,20 +219,18 @@ serve(async (req: Request) => {
       console.log('[Callback Received]', JSON.stringify(callbackBody));
       await processCallback(callbackBody);
 
-      // Return standard Safaricom callback acknowledgment
       return jsonResponse({
         ResultCode: 0,
         ResultDesc: 'Callback processed successfully',
       });
     }
 
-    // Get Payment Status by Reference
     if (req.method === 'GET' && (pathname.startsWith('/status/') || pathname.startsWith('/payments/') || pathname.startsWith('/api/payments/'))) {
       const parts = pathname.split('/');
       const reference = parts[parts.length - 1];
 
       if (!reference || reference === 'history' || reference === 'payments') {
-        // Fallthrough to history if path is /history or /payments
+        // Fallthrough
       } else {
         const payment = await getPaymentByReference(reference);
         if (!payment) {
@@ -136,7 +240,6 @@ serve(async (req: Request) => {
       }
     }
 
-    // Get Payment History
     if (req.method === 'GET' && (pathname === '/history' || pathname === '/payments' || pathname === '/api/payments')) {
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
       const offset = parseInt(url.searchParams.get('offset') || '0', 10);

@@ -4,13 +4,15 @@ import com.google.gson.annotations.SerializedName
 
 data class PaymentRequest(
     @SerializedName("phone") val phone: String,
-    @SerializedName("amount") val amount: Int
+    @SerializedName("amount") val amount: Int,
+    @SerializedName("orderReference") val orderReference: String? = null
 )
 
 data class PaymentResponse(
     @SerializedName("success") val success: Boolean,
     @SerializedName("message") val message: String?,
     @SerializedName("reference") val reference: String?,
+    @SerializedName("orderReference") val orderReference: String?,
     @SerializedName("checkoutRequestId") val checkoutRequestId: String?,
     @SerializedName("status") val status: String?,
     @SerializedName("maskedPhone") val maskedPhone: String?,
@@ -21,6 +23,7 @@ data class PaymentResponse(
 data class Transaction(
     @SerializedName("id") val id: Int,
     @SerializedName("reference") val reference: String,
+    @SerializedName("orderReference") val orderReference: String?,
     @SerializedName("phone") val phone: String,
     @SerializedName("maskedPhone") val maskedPhone: String?,
     @SerializedName("amount") val amount: Int,
