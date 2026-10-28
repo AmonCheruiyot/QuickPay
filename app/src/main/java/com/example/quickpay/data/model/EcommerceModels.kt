@@ -73,7 +73,7 @@ data class CheckoutRequest(
 
 data class OrderItem(
     @SerializedName("id") val id: Int?,
-    @SerializedName("productId") val productId: Int,
+    @SerializedName("productId") val productId: Int?,
     @SerializedName("productName") val productName: String,
     @SerializedName("quantity") val quantity: Int,
     @SerializedName("unitPrice") val unitPrice: Int,
@@ -92,7 +92,8 @@ data class Order(
     @SerializedName("paymentStatus") val paymentStatus: String, // 'PENDING', 'SUCCESS', 'FAILED', 'CANCELLED'
     @SerializedName("receiptNumber") val receiptNumber: String?,
     @SerializedName("createdAt") val createdAt: String,
-    @SerializedName("items") val items: List<OrderItem>?
+    @SerializedName("itemCount") val itemCount: Int? = null,
+    @SerializedName("items") val items: List<OrderItem>? = null
 )
 
 data class CheckoutResponse(

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="128"
+    android:viewportHeight="128">
+
+    <!-- Background Emerald Green Circle -->
+    <path
+        android:pathData="M64,8 C33.07,8 8,33.07 8,64 C8,94.93 33.07,120 64,120 C94.93,120 120,94.93 120,64 C120,33.07 94.93,8 64,8 Z"
+        android:fillColor="#00A352"/>
+
+    <!-- Inner Glow Ring -->
+    <path
+        android:pathData="M64,14 C36.39,14 14,36.39 14,64 C14,91.61 36.39,114 64,114 C91.61,114 114,91.61 114,64 C114,36.39 91.61,14 64,14 Z"
+        android:fillColor="#008037"/>
+
+    <!-- Smartphone Body -->
+    <path
+        android:pathData="M44,32 L84,32 C88.42,32 92,35.58 92,40 L92,88 C92,92.42 88.42,96 84,96 L44,96 C39.58,96 36,92.42 36,88 L36,40 C36,35.58 39.58,32 44,32 Z"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- Screen Screen Area -->
+    <path
+        android:pathData="M40,40 L88,40 L88,80 L40,80 Z"
+        android:fillColor="#F5F7FA"/>
+
+    <!-- Gold Payment Card / Arrow Icon inside screen -->
+    <path
+        android:pathData="M48,50 L80,50 L80,70 L48,70 Z"
+        android:fillColor="#00A352"/>
+
+    <!-- Golden Checkmark -->
+    <path
+        android:pathData="M54,60 L62,68 L76,52"
+        android:strokeWidth="5"
+        android:strokeColor="#F59E0B"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+
+    <!-- Phone Home Button -->
+    <path
+        android:pathData="M64,88 m-3,0 a3,3 0 1,1 6,0 a3,3 0 1,1 -6,0"
+        android:fillColor="#00A352"/>
+
+</vector>
